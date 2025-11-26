@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react'
 import { Card, Row, Col, Table, Statistic, Spin, message, Tag } from 'antd'
 import {
   MedicineBoxOutlined,
-  ReconciliationOutlined, // Para representar exames/contratos
-  UserDeleteOutlined,     // Para representar afastamentos
-  FileProtectOutlined,    // Para atestados/médicos
-  FallOutlined            // Para taxas
+  ReconciliationOutlined,
+  UserDeleteOutlined,
+  FileProtectOutlined,
+  FallOutlined
 } from '@ant-design/icons'
 import {
   BarChart,
@@ -28,54 +28,33 @@ export default function DashboardClinica() {
   const [dashboardData, setDashboardData] = useState(null)
 
   // ==========================================
-  // SIMULAÇÃO DA API (Aqui entraria o retorno do seu Python)
+  // 1. CARREGAR DADOS REAIS DA API
   // ==========================================
   async function carregarDashboard() {
     try {
       setLoading(true)
-      
-      // Simulando um delay de rede
-      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // DADOS MOCKADOS (Simulando o resultado dos seus scripts Python)
-      const dataSimulada = {
-        kpis: {
-          totalExames: 12450,
-          totalAfastamentos: 890,
-          taxaMediaAfastamento: 7.15
+      // Chamada real ao endpoint que criamos no route.js
+      const response = await fetch('/api/dashboard', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        // Baseado no Script 1: Afastamentos por Empresa
-        empresasRanking: [
-          { empresa: 'TechSolutions', total_afastamentos: 120, total_exames: 800, percentual: 15.0 },
-          { empresa: 'ConstruTudo', total_afastamentos: 95, total_exames: 400, percentual: 23.75 },
-          { empresa: 'Varejo Bom Preço', total_afastamentos: 80, total_exames: 1200, percentual: 6.66 },
-          { empresa: 'Logística Rápida', total_afastamentos: 60, total_exames: 500, percentual: 12.0 },
-          { empresa: 'Banco Seguro', total_afastamentos: 45, total_exames: 900, percentual: 5.0 }
-        ],
-        // Baseado no Script 2: Performance Médica
-        medicosStats: [
-          { medico: 'Dr. João Silva', total_exames: 450, total_afastamentos: 110, percentual: 24.4 },
-          { medico: 'Dra. Ana Costa', total_exames: 500, total_afastamentos: 25, percentual: 5.0 },
-          { medico: 'Dr. Pedro Santos', total_exames: 320, total_afastamentos: 90, percentual: 28.1 },
-          { medico: 'Dra. Maria Oliveira', total_exames: 600, total_afastamentos: 30, percentual: 5.0 },
-          { medico: 'Dr. Roberto Lima', total_exames: 400, total_afastamentos: 85, percentual: 21.25 }
-        ],
-        // Baseado no Script 3: Evolução Temporal (Agregado)
-        evolucaoMensal: [
-          { mes: 'Jan/24', TechSolutions: 10, ConstruTudo: 15, Varejo: 5 },
-          { mes: 'Fev/24', TechSolutions: 12, ConstruTudo: 10, Varejo: 8 },
-          { mes: 'Mar/24', TechSolutions: 25, ConstruTudo: 20, Varejo: 10 },
-          { mes: 'Abr/24', TechSolutions: 18, ConstruTudo: 12, Varejo: 12 },
-          { mes: 'Mai/24', TechSolutions: 30, ConstruTudo: 25, Varejo: 15 },
-          { mes: 'Jun/24', TechSolutions: 25, ConstruTudo: 13, Varejo: 30 } // Pico no varejo
-        ]
+        // cache: 'no-store' // Opcional: Para evitar cache em desenvolvimento
+      })
+
+      if (!response.ok) {
+        throw Error(`Erro na API: ${response.status}`)
       }
 
-      setDashboardData(dataSimulada)
+      const data = await response.json()
+      
+      console.log('Dados recebidos do Backend:', data) // Útil para debug na aula
+      setDashboardData(data)
 
     } catch (error) {
       console.error('❌ Erro ao carregar dashboard:', error)
-      message.error('Erro ao carregar dados do dashboard')
+      message.error('Erro ao comunicar com o servidor')
     } finally {
       setLoading(false)
     }
@@ -86,10 +65,10 @@ export default function DashboardClinica() {
   }, [])
 
   // ==========================================
-  // DEFINIÇÃO DAS TABELAS
+  // DEFINIÇÃO DAS TABELAS (Ajustadas para o JSON do Backend)
   // ==========================================
 
-  // Tabela 1: Empresas com mais afastamentos (Script 1)
+  // Tabela 1: Empresas
   const columnsEmpresas = [
     {
       title: 'Empresa',
@@ -98,15 +77,12 @@ export default function DashboardClinica() {
       render: (text) => <strong>{text}</strong>
     },
     {
-      title: 'Total Exames',
-      dataIndex: 'total_exames',
-      key: 'total_exames',
-      align: 'right'
-    },
-    {
+      // O backend retorna 'total' para contagem de exames nessa view específica
+      // Se quiser total de exames, precisaria ajustar no backend, 
+      // mas aqui vamos usar o total de afastamentos que é o foco
       title: 'Afastamentos',
-      dataIndex: 'total_afastamentos',
-      key: 'total_afastamentos',
+      dataIndex: 'total', // Ajustado: Backend envia 'total'
+      key: 'total',
       align: 'right',
       render: (val) => <span style={{ color: '#cf1322' }}>{val}</span>
     },
@@ -116,42 +92,41 @@ export default function DashboardClinica() {
       key: 'percentual',
       align: 'right',
       render: (val) => {
-        let color = val > 20 ? 'red' : val > 10 ? 'orange' : 'green';
-        return <Tag color={color}>{val.toFixed(2)}%</Tag>
+        // Proteção caso val seja null
+        const valor = val ? val : 0; 
+        let color = valor > 20 ? 'red' : valor > 10 ? 'orange' : 'green';
+        return <Tag color={color}>{valor.toFixed(2)}%</Tag>
       }
     }
   ]
 
-  // Tabela 2: Performance Médica (Script 2)
+  // Tabela 2: Performance Médica
   const columnsMedicos = [
     {
       title: 'Médico Responsável',
-      dataIndex: 'medico',
+      dataIndex: 'medico', // Ajustado: Backend envia 'medico'
       key: 'medico'
     },
     {
-      title: 'Exames Realizados',
-      dataIndex: 'total_exames',
-      key: 'total_exames',
+      title: 'Exames',
+      dataIndex: 'exames', // Ajustado: Backend envia 'exames'
+      key: 'exames',
       align: 'center'
     },
     {
-      title: '% de Aptidão', // Inverso do afastamento
-      key: 'aptidao',
+      title: 'Afastamentos',
+      dataIndex: 'afastamentos', // Ajustado: Backend envia 'afastamentos'
+      key: 'afastamentos',
       align: 'center',
-      render: (_, record) => (
-        <span style={{ color: '#3f8600' }}>
-          {(100 - record.percentual).toFixed(1)}%
-        </span>
-      )
+      render: (val) => <span style={{ color: '#cf1322' }}>{val}</span>
     },
     {
-      title: '% Afastamento',
+      title: '% Reprovação',
       dataIndex: 'percentual',
       key: 'percentual',
       align: 'center',
       sorter: (a, b) => a.percentual - b.percentual,
-      render: (val) => <strong>{val.toFixed(2)}%</strong>
+      render: (val) => <strong>{val ? val.toFixed(2) : 0}%</strong>
     }
   ]
 
@@ -160,6 +135,10 @@ export default function DashboardClinica() {
   // ==========================================
   if (loading) return <div className={styles.loading}><Spin size="large" /></div>
   if (!dashboardData) return null
+
+  // Desestruturação segura para garantir que as chaves existam
+  // Nota: 'resumo', 'topEmpresas', 'medicos', 'evolucao' vêm do route.js
+  const { resumo, topEmpresas, medicos, evolucao } = dashboardData;
 
   return (
     <div className={styles.container}>
@@ -170,16 +149,16 @@ export default function DashboardClinica() {
           <MedicineBoxOutlined className={styles.titleIcon} />
           Gestão de Saúde Ocupacional
         </h1>
-        <p style={{ color: '#666' }}>Análise de exames admissionais, periódicos e demissionais</p>
+        <p style={{ color: '#666' }}>Dados em tempo real do banco de dados</p>
       </div>
 
-      {/* KPI CARDS (Totais Gerais) */}
+      {/* KPI CARDS */}
       <Row gutter={[16, 16]} className={styles.statsRow}>
         <Col xs={24} sm={8}>
           <Card className={styles.statCard}>
             <Statistic
-              title="Total de Exames Realizados"
-              value={dashboardData.kpis.totalExames}
+              title="Total de Exames"
+              value={resumo?.totalExames || 0} // Ajustado para 'resumo'
               prefix={<ReconciliationOutlined style={{ color: '#1890ff' }} />}
             />
           </Card>
@@ -188,8 +167,8 @@ export default function DashboardClinica() {
         <Col xs={24} sm={8}>
           <Card className={styles.statCard}>
             <Statistic
-              title="Total de Afastamentos (Inaptos)"
-              value={dashboardData.kpis.totalAfastamentos}
+              title="Total de Afastamentos"
+              value={resumo?.totalAfastamentos || 0} // Ajustado para 'resumo'
               prefix={<UserDeleteOutlined style={{ color: '#cf1322' }} />}
               valueStyle={{ color: '#cf1322' }}
             />
@@ -199,8 +178,8 @@ export default function DashboardClinica() {
         <Col xs={24} sm={8}>
           <Card className={styles.statCard}>
             <Statistic
-              title="Taxa Global de Afastamento"
-              value={dashboardData.kpis.taxaMediaAfastamento}
+              title="Taxa de Inaptidão"
+              value={resumo?.percentualGeral || 0} // Ajustado para 'resumo'
               precision={2}
               suffix="%"
               prefix={<FallOutlined style={{ color: '#fa8c16' }} />}
@@ -213,48 +192,56 @@ export default function DashboardClinica() {
       {/* GRÁFICOS */}
       <Row gutter={[16, 16]} className={styles.chartsRow}>
         
-        {/* Gráfico 1: Top Empresas com Afastamentos (Visualização do Script 1) */}
+        {/* Gráfico 1: Barras */}
         <Col xs={24} lg={12}>
-          <Card title="🏢 Top Empresas por Volume de Afastamentos" className={styles.chartCard}>
+          <Card title="🏢 Empresas com Mais Afastamentos" className={styles.chartCard}>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={dashboardData.empresasRanking} layout="vertical">
+              {/* Ajustado data={topEmpresas} */}
+              <BarChart data={topEmpresas} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" />
-                <YAxis dataKey="empresa" type="category" width={100} />
+                <YAxis dataKey="empresa" type="category" width={100} style={{fontSize: '11px'}} />
                 <Tooltip />
-                <Bar dataKey="total_afastamentos" fill="#ff7875" name="Afastamentos" radius={[0, 4, 4, 0]} />
+                {/* Ajustado dataKey="total" conforme backend */}
+                <Bar dataKey="total" fill="#ff7875" name="Afastamentos" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </Card>
         </Col>
 
-        {/* Gráfico 2: Evolução Temporal (Visualização do Script 3) */}
+        {/* Gráfico 2: Linhas (Evolução) */}
         <Col xs={24} lg={12}>
-          <Card title="📅 Evolução de Afastamentos (Top 3 Empresas)" className={styles.chartCard}>
+          <Card title="📅 Evolução Mensal (Top Empresas)" className={styles.chartCard}>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={dashboardData.evolucaoMensal}>
+              {/* Ajustado data={evolucao} */}
+              <LineChart data={evolucao}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="mes" />
+                <XAxis dataKey="nome" /> {/* Backend envia 'nome' como o mês */}
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="TechSolutions" stroke="#8884d8" strokeWidth={2} />
-                <Line type="monotone" dataKey="ConstruTudo" stroke="#82ca9d" strokeWidth={2} />
-                <Line type="monotone" dataKey="Varejo" stroke="#ffc658" strokeWidth={2} />
+                {/* IMPORTANTE: As linhas aqui dependem dos nomes exatos das empresas no seu CSV.
+                  Se no CSV a empresa for "TechSolutions", o dataKey tem que ser igual.
+                  Para a aula, garanta que o CSV tenha esses nomes ou altere as linhas abaixo
+                  para os nomes que estão no seu banco.
+                */}
+                <Line type="monotone" dataKey="TechSolutions" stroke="#8884d8" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="ConstruTudo" stroke="#82ca9d" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="Varejo Bom Preço" stroke="#ffc658" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </Card>
         </Col>
       </Row>
 
-      {/* TABELAS DETALHADAS */}
+      {/* TABELAS */}
       <Row gutter={[16, 16]} className={styles.tablesRow}>
         
-        {/* Tabela 1: Detalhamento por Empresa */}
+        {/* Tabela 1: Empresas */}
         <Col xs={24} lg={12}>
-          <Card title="📋 Relatório: Afastamentos por Empresa" className={styles.tableCard}>
+          <Card title="📋 Ranking de Empresas" className={styles.tableCard}>
             <Table
-              dataSource={dashboardData.empresasRanking}
+              dataSource={topEmpresas} // Ajustado para variável correta
               columns={columnsEmpresas}
               rowKey="empresa"
               pagination={{ pageSize: 5 }}
@@ -263,14 +250,14 @@ export default function DashboardClinica() {
           </Card>
         </Col>
 
-        {/* Tabela 2: Análise Médica */}
+        {/* Tabela 2: Médicos */}
         <Col xs={24} lg={12}>
           <Card 
-            title={<span><FileProtectOutlined /> Análise de Rigor Médico (Percentual de Reprovações)</span>} 
+            title={<span><FileProtectOutlined /> Análise de Rigor Médico</span>} 
             className={styles.tableCard}
           >
             <Table
-              dataSource={dashboardData.medicosStats}
+              dataSource={medicos} // Ajustado para variável correta
               columns={columnsMedicos}
               rowKey="medico"
               pagination={{ pageSize: 5 }}
