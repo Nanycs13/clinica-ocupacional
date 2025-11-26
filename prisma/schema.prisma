@@ -6,25 +6,12 @@ datasource db {
   provider = "sqlite"
 }
 
-model Franquia {
-  id           Int           @id @default(autoincrement())
-  nome         String
-  cidade       String
-  endereco     String
-  telefone     String
-  funcionarios Funcionario[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-}
-
-model Funcionario {
-  id         Int       @id @default(autoincrement())
-  nome       String
-  email      String    @unique
-  cargo      String
-  salario    Float
-  franquiaId Int
-  franquia   Franquia  @relation(fields: [franquiaId], references: [id])
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+model ExameMedico {
+  id_exame           Int      @id
+  empresa            String
+  medico_responsavel String
+  data_exame         DateTime
+  tipo_exame         String
+  resultado          String
+  afastamento        String
 }
