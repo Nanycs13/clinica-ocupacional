@@ -7,11 +7,14 @@ datasource db {
 }
 
 model ExameMedico {
-  id_exame           Int      @id
-  empresa            String
-  medico_responsavel String
-  data_exame         DateTime
-  tipo_exame         String
-  resultado          String
-  afastamento        String
+  id_exame           Int      @id @default(autoincrement()) @map("id_exame")
+  empresa            String   @map("empresa")
+  medico_responsavel String   @map("medico_responsavel")
+  data_exame         DateTime @map("data_exame")
+  tipo_exame         String   @map("tipo_exame")
+  resultado          String   @map("resultado")
+  afastamento        String   @map("afastamento")
+
+  @@map("exame_medico")
 }
+
