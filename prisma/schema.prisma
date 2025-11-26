@@ -1,0 +1,30 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Franquia {
+  id           Int           @id @default(autoincrement())
+  nome         String
+  cidade       String
+  endereco     String
+  telefone     String
+  funcionarios Funcionario[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Funcionario {
+  id         Int       @id @default(autoincrement())
+  nome       String
+  email      String    @unique
+  cargo      String
+  salario    Float
+  franquiaId Int
+  franquia   Franquia  @relation(fields: [franquiaId], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
