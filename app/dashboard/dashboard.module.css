@@ -1,0 +1,76 @@
+/* dashboard.module.css */
+.container {
+  padding: 24px;
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.title {
+  color: #1f2937;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.8rem;
+}
+
+.titleIcon {
+  color: #fa8c16;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 16px;
+  color: #666;
+}
+
+/* Cards de Estatísticas */
+.statsRow {
+  margin-bottom: 24px;
+}
+
+.statCard {
+  text-align: center;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+  height: 100%; /* Garante altura uniforme */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.statCard:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+/* Gráficos */
+.chartsRow {
+  margin-bottom: 24px;
+}
+
+.chartCard {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  height: 400px; /* Aumentei um pouco para caber legendas */
+}
+
+/* Ajuste para garantir que o gráfico preencha o card */
+.chartCard :global(.ant-card-body) {
+  height: 320px;
+  display: flex;
+  flex-direction: column;
+}
+
+.chartCard :global(.ant-card-head-title) {
+  font-weight: 600;
+}
