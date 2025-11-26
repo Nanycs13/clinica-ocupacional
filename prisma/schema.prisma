@@ -5,7 +5,6 @@ generator client {
 datasource db {
   provider = "sqlite"
 }
-
 model ExameMedico {
   id_exame           Int      @id @default(autoincrement()) @map("id_exame")
   empresa            String   @map("empresa")
@@ -17,4 +16,3 @@ model ExameMedico {
 
   @@map("exame_medico")
 }
-

@@ -10,7 +10,9 @@ export async function GET() {
       const imported = await import('@prisma/client')
       const { PrismaClient } = imported
       const globalForPrisma = globalThis
-      prisma = globalForPrisma.prisma || new PrismaClient()
+      // Pass an explicit empty options object to avoid runtime code that
+      // incorrectly tries to read properties from an undefined `options` arg.
+      prisma = globalForPrisma.prisma || new PrismaClient({})
       if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
       console.log('Prisma client loaded dynamically')
     } catch (err) {
@@ -18,14 +20,56 @@ export async function GET() {
       prisma = null
     }
 
-    // Load data (fall back to empty array if Prisma unavailable)
+    // Load data. Prefer direct SQLite read via `better-sqlite3` (faster
+    // and avoids Prisma runtime issues). If `better-sqlite3` isn't installed
+    // we fall back to Prisma (if it loads correctly), otherwise use mock data.
     let todosExames = []
-    if (prisma && prisma.exameMedico && typeof prisma.exameMedico.findMany === 'function') {
-      todosExames = await prisma.exameMedico.findMany()
-    } else {
-      console.log('Using mock data for todosExames (Prisma unavailable)')
+    let loadedFrom = 'none'
+
+    try {
+      // try direct sqlite access
+      const Database = await (async () => {
+        try {
+          return require('better-sqlite3')
+        } catch (e) {
+          return null
+        }
+      })()
+
+      if (Database) {
+        const path = require('path')
+        // Use process.cwd() to locate the prisma DB at runtime so the
+        // Next.js bundler doesn't try to resolve a relative import to the
+        // database file during compilation. This works cross-platform.
+        const dbPath = path.join(process.cwd(), 'prisma', 'exames.db')
+        const db = new Database(dbPath, { readonly: true })
+        const rows = db.prepare('SELECT * FROM exame_medico').all()
+        todosExames = rows.map(r => ({
+          id_exame: r.id_exame,
+          empresa: r.empresa,
+          medico_responsavel: r.medico_responsavel,
+          data_exame: r.data_exame,
+          tipo_exame: r.tipo_exame,
+          resultado: r.resultado,
+          afastamento: r.afastamento
+        }))
+        db.close()
+        loadedFrom = 'better-sqlite3'
+      } else if (prisma && prisma.exameMedico && typeof prisma.exameMedico.findMany === 'function') {
+        todosExames = await prisma.exameMedico.findMany()
+        loadedFrom = 'prisma'
+      } else {
+        console.log('Using mock data for todosExames (no DB access available)')
+        todosExames = []
+        loadedFrom = 'mock'
+      }
+    } catch (err) {
+      console.error('Error loading exames from DB:', err)
       todosExames = []
+      loadedFrom = 'error'
     }
+
+    console.log('todosExames loadedFrom=', loadedFrom)
 
     // ---------------------------------------------------------
     // 2. PROCESSAMENTO: KPIS GERAIS
@@ -99,37 +143,45 @@ export async function GET() {
     // ---------------------------------------------------------
     // 5. PROCESSAMENTO: EVOLUÇÃO TEMPORAL (Para o Gráfico de Linha)
     // ---------------------------------------------------------
-    
-    // O Recharts precisa de algo como: [{ nome: 'Jan', TechSolutions: 5, ConstruTudo: 2 }]
-    const evolucaoMap = {}; // Chave será "Mes/Ano"
 
-    // Vamos focar apenas no Top 3 empresas para o gráfico não ficar poluído
-    const top3Nomes = topEmpresas.slice(0, 3).map(e => e.empresa);
+    // O Recharts precisa de algo como: [{ nome: 'Jan/2024', TechSolutions: 5, ConstruTudo: 2 }]
+    // Usaremos uma chave numérica (ano*100 + mês) para garantir ordenação correta
+    // e evitar problemas com localizações/formatos de mês (ex: 'jan.' vs 'jan').
+    const evolucaoMap = {}; // chave: year*100 + month (e.g. 202401)
 
-    examesComAfastamento.forEach(exame => {
-      // Verifica se a empresa é uma das top 3
-      if (!top3Nomes.includes(exame.empresa)) return;
+      // Foca apenas nas Top 3 empresas para o gráfico não ficar poluído
+      const top3Nomes = topEmpresas.slice(0, 3).map(e => e.empresa);
 
-      const data = new Date(exame.data_exame);
-      // Cria chave tipo "Jan" ou "01/2024" (Aqui usarei nome do mês abreviado)
-      const mes = data.toLocaleString('pt-BR', { month: 'short' }); 
-      // Dica: Para ordenar corretamente, seria ideal usar o número do mês, 
-      // mas para o exemplo visual vamos usar o nome.
+      // Queremos exatamente Jan..Dez do ANO ATUAL como eixo X.
+      const mesesDisplay = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      const currentYear = new Date().getFullYear();
 
-      if (!evolucaoMap[mes]) {
-        evolucaoMap[mes] = { nome: mes };
-        // Inicializa com 0 para as top 3
-        top3Nomes.forEach(emp => evolucaoMap[mes][emp] = 0);
+      // Inicializa todas as entradas do ano atual com zeros para as top3
+      for (let m = 1; m <= 12; m++) {
+        const sortKey = currentYear * 100 + m;
+        evolucaoMap[sortKey] = { __sort: sortKey, nome: mesesDisplay[m - 1] };
+        top3Nomes.forEach(emp => (evolucaoMap[sortKey][emp] = 0));
       }
 
-      evolucaoMap[mes][exame.empresa] += 1;
-    });
+      // Preenche os valores a partir dos exames do ano atual
+      examesComAfastamento.forEach(exame => {
+        const data = new Date(exame.data_exame);
+        const year = data.getFullYear();
+        if (year !== currentYear) return; // ignorar outros anos
 
-    // Ordenar os meses (Hack rápido: jan, fev, mar...)
-    const ordemMeses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-    const evolucaoGrafico = Object.values(evolucaoMap).sort((a, b) => {
-      return ordemMeses.indexOf(a.nome.toLowerCase()) - ordemMeses.indexOf(b.nome.toLowerCase());
-    });
+        const month = data.getMonth() + 1; // 1-12
+        const sortKey = year * 100 + month;
+        // Só acumula se a empresa estiver entre o top3
+        if (!top3Nomes.includes(exame.empresa)) return;
+
+        evolucaoMap[sortKey][exame.empresa] = (evolucaoMap[sortKey][exame.empresa] || 0) + 1;
+      });
+
+      // Ordena de Jan a Dez e remove a chave auxiliar
+      const evolucaoGrafico = Object.values(evolucaoMap)
+        .filter(item => Math.floor(item.__sort / 100) === currentYear)
+        .sort((a, b) => a.__sort - b.__sort)
+        .map(({ __sort, ...rest }) => rest);
 
 
     // ---------------------------------------------------------

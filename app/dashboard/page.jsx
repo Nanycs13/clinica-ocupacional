@@ -140,6 +140,17 @@ export default function DashboardClinica() {
   // Nota: 'resumo', 'topEmpresas', 'medicos', 'evolucao' vêm do route.js
   const { resumo, topEmpresas, medicos, evolucao } = dashboardData;
 
+  // Define quais séries exibir no gráfico de evolução.
+  // Preferimos usar os nomes das topEmpresas (Top 3); como fallback,
+  // extraímos as chaves do primeiro item de `evolucao` (ignorando 'nome').
+  const seriesNames = (topEmpresas && topEmpresas.length > 0)
+    ? topEmpresas.slice(0, 3).map(e => e.empresa)
+    : (evolucao && evolucao.length > 0)
+      ? Object.keys(evolucao[0]).filter(k => k !== 'nome')
+      : [];
+
+  const seriesColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7875', '#1890ff'];
+
   return (
     <div className={styles.container}>
 
@@ -225,9 +236,16 @@ export default function DashboardClinica() {
                   Para a aula, garanta que o CSV tenha esses nomes ou altere as linhas abaixo
                   para os nomes que estão no seu banco.
                 */}
-                <Line type="monotone" dataKey="TechSolutions" stroke="#8884d8" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="ConstruTudo" stroke="#82ca9d" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="Varejo Bom Preço" stroke="#ffc658" strokeWidth={2} dot={false} />
+                {seriesNames.map((name, idx) => (
+                  <Line
+                    key={name}
+                    type="monotone"
+                    dataKey={name}
+                    stroke={seriesColors[idx % seriesColors.length]}
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </Card>
